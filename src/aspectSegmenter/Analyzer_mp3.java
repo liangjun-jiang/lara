@@ -48,7 +48,7 @@ public class Analyzer_mp3 {
 		}
 	}
 	
-	Vector<Hotel> m_hotelList;	
+	Vector<Mp3> m_mp3List;	
 	Vector<_Aspect> m_keywords;
 	Hashtable<String, Integer> m_vocabulary;//indexed vocabulary
 	Vector<String> m_wordlist;//term list in the original order
@@ -90,7 +90,7 @@ public class Analyzer_mp3 {
 	}
 	
 	public Analyzer_mp3(String seedwords, String stopwords, String stnSplModel, String tknModel, String posModel){
-		m_hotelList = new Vector<Hotel>();
+		m_mp3List = new Vector<Mp3>();
 		m_vocabulary = new Hashtable<String, Integer>();
 		m_chi_table = null;
 		m_isLoadCV = false;
@@ -215,14 +215,16 @@ public class Analyzer_mp3 {
 			Review review = null;
 			String[] stns, tokens;
 			Span[] stn_spans;
-			int[] ratings = new int[1+ASPECT_SET_NEW.length];
+//			int[] ratings = new int[1+ASPECT_SET_NEW.length];
+			int[] ratings = new int[1];
 			Hotel tHotel = new Hotel(fname);
+			Mp3 tMp3 = new Mp3(fileName);
 			while((tmpTxt=reader.readLine()) != null){
-				if (tmpTxt.startsWith("<Title>"))
-		    		title = tmpTxt.substring("<Title>".length()+1, tmpTxt.length()-1);
-				else if (tmpTxt.startsWith("<Overall>")){//only read those aspects
+				if (tmpTxt.startsWith("[title]:"))
+		    		title = tmpTxt.substring("[title]:".length()+1, tmpTxt.length()-1);
+				else if (tmpTxt.startsWith("[rating]:")){//only read those aspects
 					try{
-			    		double r = Double.valueOf(tmpTxt.substring("<Overall>".length()));
+			    		double r = Double.valueOf(tmpTxt.substring("[rating]:".length()));
 			    		ratings[0] = (int)r;
 					} catch (Exception e){
 						System.err.println("Error format: " + fname);
@@ -230,18 +232,18 @@ public class Analyzer_mp3 {
 						return;
 					}
 		    	}
-		    	else if (tmpTxt.startsWith("<Value>"))
-		    		ratings[1] = Integer.valueOf(tmpTxt.substring("<Value>".length()));
-		    	else if (tmpTxt.startsWith("<Rooms>"))
-		    		ratings[2] = Integer.valueOf(tmpTxt.substring("<Rooms>".length()));
-		    	else if (tmpTxt.startsWith("<Location>"))
-		    		ratings[3] = Integer.valueOf(tmpTxt.substring("<Location>".length()));
-		    	else if (tmpTxt.startsWith("<Cleanliness>"))
-		    		ratings[4] = Integer.valueOf(tmpTxt.substring("<Cleanliness>".length()));
-		    	else if (tmpTxt.startsWith("<Service>"))
-		    		ratings[5] = Integer.valueOf(tmpTxt.substring("<Service>".length()));
-				else if (tmpTxt.startsWith("<Content>"))
-					content = cleanReview(tmpTxt.substring("<Content>".length()));
+//		    	else if (tmpTxt.startsWith("<Value>"))
+//		    		ratings[1] = Integer.valueOf(tmpTxt.substring("<Value>".length()));
+//		    	else if (tmpTxt.startsWith("<Rooms>"))
+//		    		ratings[2] = Integer.valueOf(tmpTxt.substring("<Rooms>".length()));
+//		    	else if (tmpTxt.startsWith("<Location>"))
+//		    		ratings[3] = Integer.valueOf(tmpTxt.substring("<Location>".length()));
+//		    	else if (tmpTxt.startsWith("<Cleanliness>"))
+//		    		ratings[4] = Integer.valueOf(tmpTxt.substring("<Cleanliness>".length()));
+//		    	else if (tmpTxt.startsWith("<Service>"))
+//		    		ratings[5] = Integer.valueOf(tmpTxt.substring("<Service>".length()));
+				else if (tmpTxt.startsWith("[fullText]:"))
+					content = cleanReview(tmpTxt.substring("[fullText]:".length()));
 				else if (tmpTxt.isEmpty() && content != null){
 					stn_spans = m_stnDector.sentPosDetect(content);//list of the sentence spans
 					if (stn_spans.length<3){
@@ -278,10 +280,10 @@ public class Analyzer_mp3 {
 			reader.close();
 			
 			if (tHotel.getReviewSize()>1){
-				m_hotelList.add(tHotel);
-				if (m_hotelList.size()%100==0)
+				m_mp3List.add(tHotel);
+				if (m_mp3List.size()%100==0)
 					System.out.print(".");
-				if (m_hotelList.size()%10000==0)
+				if (m_mp3List.size()%10000==0)
 					System.out.println(".");
 			}
 		} catch (IOException e) {
@@ -291,14 +293,14 @@ public class Analyzer_mp3 {
 	
 	public void LoadDirectory(String path, String suffix){		
 		File dir = new File(path);
-		int size = m_hotelList.size();
+		int size = m_mp3List.size();
 		for (File f : dir.listFiles()) {
 			if (f.isFile() && f.getName().endsWith(suffix))
 				LoadReviews(f.getAbsolutePath());
 			else if (f.isDirectory())
 				LoadDirectory(f.getAbsolutePath(), suffix);
 		}
-		size = m_hotelList.size() - size;
+		size = m_mp3List.size() - size;
 		System.out.println("Loading " + size + " hotels from " + path);
 	}
 	
@@ -309,7 +311,7 @@ public class Analyzer_mp3 {
 			int[][] vectors = new int[m_keywords.size()][m_vocabulary.size()];
 			double[] ratings = new double[1+m_keywords.size()], counts = new double[1+m_keywords.size()];
 			int aspectID, wordID, outputSize=0, reviewSize=0;
-			for(Hotel hotel:m_hotelList){
+			for(Hotel hotel:m_mp3List){
 				for(Review r:hotel.m_reviews){//aggregate all the reviews
 					Annotate(r);
 					
@@ -476,7 +478,7 @@ public class Analyzer_mp3 {
 	
 	private void ChiSquareTest(){		
 		createChiTable();
-		for(Hotel hotel:m_hotelList){
+		for(Hotel hotel:m_mp3List){
 			for(Review tReview:hotel.m_reviews){
 				Annotate(tReview);
 				collectStats(tReview);
@@ -510,7 +512,7 @@ public class Analyzer_mp3 {
 		else
 			Arrays.fill(m_wordCount, 0);
 		
-		for(Hotel hotel:m_hotelList){
+		for(Hotel hotel:m_mp3List){
 			for(Review tReview:hotel.m_reviews){
 				for(Sentence stn : tReview.m_stns){					
 					for(Token t:stn.m_tokens){
@@ -676,14 +678,14 @@ public class Analyzer_mp3 {
 	}
 	
 	static public void main(String[] args){
-		Analyzer_mp3 analyzer = new Analyzer_mp3("Data/Seeds/hotel_bootstrapping.dat", "Data/Seeds/stopwords.dat", 
+		Analyzer_mp3 analyzer = new Analyzer_mp3("Data/Seeds/mp3_bootstrapping.dat", "Data/Seeds/stopwords.dat", 
 				"Data/Model/NLP/en-sent.zip", "Data/Model/NLP/en-token.zip", "Data/Model/NLP/en-pos-maxent.bin");
 		//analyzer.LoadVocabulary("Data/Seeds/hotel_vocabulary_CHI.dat");
-		analyzer.LoadDirectory("Data/Reviews/", ".dat");
+		analyzer.LoadDirectory("Data/mp3_reviews/", ".dat");
 		//analyzer.LoadReviews("e:/Data/Reviews/Tmp/hotel_111849.dat");
-		analyzer.BootStrapping("Data/Seeds/hotel_bootstrapping_test.dat");
+		analyzer.BootStrapping("Data/Seeds/mp3_bootstrapping.dat");
 		//analyzer.OutputWordListWithInfo("Data/Seeds/hotel_vocabulary_May10.dat");
-		analyzer.Save2Vectors("Data/Vectors/vector_CHI_4000.dat");	
+		analyzer.Save2Vectors("Data/Vectors/vector_mp3_CHI_4000.dat");	
 		//analyzer.SaveVocabulary("Data/Seeds/hotel_vocabulary.dat");
 	}
 }
